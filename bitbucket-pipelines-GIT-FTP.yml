@@ -1,0 +1,17 @@
+image: biterika/git-ftp:latest
+
+pipelines:
+  custom:
+    init-master:
+      - step:
+          caches:
+            - composer
+          script:
+            - git ftp catchup -u "$SFTP_USER_PROD" -p "$SFTP_PASSWORD" -v  --insecure "sftp://$SFTP_SERVER_PATH_PROD"
+  branches:
+    master:
+      - step:
+          name: 'Deployment to Production'
+          deployment: production
+          script:
+           - git ftp push -u "$SFTP_USER_PROD" -p "$SFTP_PASSWORD" -v  --insecure "sftp://$SFTP_SERVER_PATH_PROD"
