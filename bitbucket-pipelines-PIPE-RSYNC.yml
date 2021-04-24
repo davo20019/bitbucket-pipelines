@@ -1,0 +1,18 @@
+pipelines:
+  branches:
+    master:
+      - step:
+          name: 'Deployment to Production'
+          deployment: production
+          script:
+            - pipe: atlassian/rsync-deploy:0.4.4
+              variables:
+                USER: '${USER}'
+                SERVER: '${SERVER}'
+                REMOTE_PATH: '${REMOTE_PATH}'
+                LOCAL_PATH: '${BITBUCKET_CLONE_DIR}/'
+                SSH_PORT: '${PORT}'
+                DEBUG: 'false'
+                EXTRA_ARGS: '-avzh --exclude-from=./ignorelist.txt'
+                # SSH_KEY: '<string>' # Optional.
+                DELETE_FLAG: 'false'
