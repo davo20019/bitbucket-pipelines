@@ -1,0 +1,156 @@
+# Base pipelines file
+# -----
+# You can specify a custom docker image from Docker Hub as your build environment.
+image: wodby/drupal-php:7.4-dev-4.21.4
+
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: 'Build and Test'
+          caches:
+            - composer
+          script:
+            #- composer install
+            #- php ./vendor/bin/grumphp run --tasks=git_commit_message
+            - echo "Your build and test goes here..."
+          services:
+            - docker
+          artifacts:
+            - core/**
+            - vendor/**
+            - modules/contrib/**
+            - themes/contrib/**
+      - step:
+          name: 'Lint'
+          script:
+            #- php ./vendor/bin/grumphp run --tasks=phpcs
+            - echo "Your linting goes here..."
+          condition:
+              changesets:
+                 includePaths:
+                   # any changes in deeply nested directories under modules/custom
+                   - "modules/custom/**"
+          services:
+            - docker
+    # The following deployment steps will be executed for each pipeline run. To configure your steps and conditionally deploy see https://support.atlassian.com/bitbucket-cloud/docs/configure-bitbucket-pipelinesyml/
+    
+  branches:  # Pipelines that run automatically on a commit to a branch
+    dev:
+      - step:
+          name: 'Deployment to Dev'
+          deployment: dev
+          script:
+            - composer global require hirak/prestissimo --ignore-platform-reqs
+            - composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader --ignore-platform-reqs
+            - pipe: atlassian/rsync-deploy:0.4.4
+              variables:
+                USER: '${DEV_USER}'
+                SERVER: '${DEV_SERVER}'
+                REMOTE_PATH: '${DEV_PATH}'
+                LOCAL_PATH: '${BITBUCKET_CLONE_DIR}/'
+                SSH_PORT: '${DEV_PORT}'
+                DEBUG: 'true'
+                EXTRA_ARGS: '-avzh --exclude-from=./ignorelist.txt'
+                # SSH_KEY: '<string>' # Optional.
+                # DELETE_FLAG: '<boolean>' # Optional.
+            - pipe: atlassian/ssh-run:0.2.3
+              variables:
+                SSH_USER: '${DEV_USER}'
+                SERVER: '${DEV_SERVER}'
+                COMMAND: 'scripts/ssh-d8-script.sh'
+                PORT: '${DEV_PORT}'
+                DEBUG: 'true'
+                MODE: 'script'
+          services:
+            - docker
+    stage:
+      - step:
+          name: 'Deployment to Stage'
+          deployment: stage
+          script:
+            - composer global require hirak/prestissimo --ignore-platform-reqs
+            - composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader --ignore-platform-reqs
+            - pipe: atlassian/rsync-deploy:0.4.4
+              variables:
+                USER: '${STAGE_USER}'
+                SERVER: '${STAGE_SERVER}'
+                REMOTE_PATH: '${STAGE_PATH}'
+                LOCAL_PATH: '${BITBUCKET_CLONE_DIR}/'
+                SSH_PORT: '${STAGE_PORT}'
+                DEBUG: 'true'
+                EXTRA_ARGS: '-avzh --exclude-from=./ignorelist.txt'
+                # SSH_KEY: '<string>' # Optional.
+                # DELETE_FLAG: '<boolean>' # Optional.
+            - pipe: atlassian/ssh-run:0.2.3
+              variables:
+                SSH_USER: '${STAGE_USER}'
+                SERVER: '${STAGE_SERVER}'
+                COMMAND: 'scripts/ssh-stage-d8-script.sh'
+                PORT: '${STAGE_PORT}'
+                DEBUG: 'true'
+                MODE: 'script'
+          services:
+            - docker
+    beta:
+      - step:
+          name: 'Deployment to Beta'
+          deployment: beta
+          script:
+            - composer global require hirak/prestissimo --ignore-platform-reqs
+            - composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader --ignore-platform-reqs
+
+            - pipe: atlassian/rsync-deploy:0.4.4
+              variables:
+                USER: '${BETA_USER}'
+                SERVER: '${BETA_SERVER}'
+                REMOTE_PATH: '${BETA_PATH}'
+                LOCAL_PATH: '${BITBUCKET_CLONE_DIR}/'
+                SSH_PORT: '${BETA_PORT}'
+                DEBUG: 'true'
+                EXTRA_ARGS: '-avzh --exclude-from=./ignorelist.txt'
+                # SSH_KEY: '<string>' # Optional.
+                # DELETE_FLAG: '<boolean>' # Optional.
+            - pipe: atlassian/ssh-run:0.2.3
+              variables:
+                SSH_USER: '${BETA_USER}'
+                SERVER: '${BETA_SERVER}'
+                COMMAND: 'scripts/ssh-beta.sh'
+                PORT: '${BETA_PORT}'
+                DEBUG: 'true'
+                MODE: 'script'
+          services:
+            - docker
+    master:
+      - step:
+          name: 'Deployment to Production'
+          deployment: prod
+          script:
+            - composer global require hirak/prestissimo --ignore-platform-reqs
+            - composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader --ignore-platform-reqs
+            - pipe: atlassian/rsync-deploy:0.4.4
+              variables:
+                USER: '${PROD_USER}'
+                SERVER: '${PROD_SERVER}'
+                REMOTE_PATH: '${PROD_PATH}'
+                LOCAL_PATH: '${BITBUCKET_CLONE_DIR}/'
+                SSH_PORT: '${PROD_PORT}'
+                DEBUG: 'true'
+                EXTRA_ARGS: '-avzh --exclude-from=./ignorelist.txt'
+                # SSH_KEY: '<string>' # Optional.
+                # DELETE_FLAG: '<boolean>' # Optional.
+            - pipe: atlassian/ssh-run:0.2.3
+              variables:
+                SSH_USER: '${PROD_USER}'
+                SERVER: '${PROD_SERVER}'
+                COMMAND: 'scripts/ssh-prod.sh'
+                PORT: '${PROD_PORT}'
+                DEBUG: 'true'
+                MODE: 'script'
+          services:
+            - docker
+
+definitions:
+  services:
+    docker:
+      memory: 2048
